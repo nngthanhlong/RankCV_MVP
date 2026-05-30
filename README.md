@@ -37,7 +37,7 @@ cd RankCV_MVP
 ### 2. Install Dependencies
 
 ```bash
-pip install fastapi uvicorn google-genai pydantic
+pip install -r requirements.txt
 ```
 
 ### 3. Set Up API Key
@@ -64,10 +64,26 @@ set GEMINI_API_KEY=your_gemini_api_key_here
 Start the FastAPI development server:
 
 ```bash
-uvicorn app:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
 
 The API will be available at `http://localhost:8000`
+
+## Project Structure
+
+```
+RankCV_MVP/
+├── app/
+│   ├── __init__.py
+│   ├── main.py            # FastAPI app and /evaluate route
+│   ├── schemas.py         # Pydantic request/response models
+│   └── gemini_client.py   # Gemini prompt building and API call
+├── examples/
+│   └── test_request.json  # Sample request payload
+├── requirements.txt
+├── .env.example
+└── README.md
+```
 
 ## API Documentation
 
@@ -107,14 +123,14 @@ The API will be available at `http://localhost:8000`
 ```bash
 curl -X POST "http://localhost:8000/evaluate" \
   -H "Content-Type: application/json" \
-  -d @test_request.json
+  -d @examples/test_request.json
 ```
 
 #### Using PowerShell
 
 ```powershell
 # Method 1: Using Invoke-RestMethod (Returns JSON as PowerShell object)
-$json = Get-Content .\test_request.json -Raw
+$json = Get-Content .\examples\test_request.json -Raw
 Invoke-RestMethod `
     -Uri "http://localhost:8000/evaluate" `
     -Method Post `
@@ -124,7 +140,7 @@ Invoke-RestMethod `
 
 ```powershell
 # Method 2: Get raw JSON output
-$json = Get-Content .\test_request.json -Raw
+$json = Get-Content .\examples\test_request.json -Raw
 $response = Invoke-RestMethod `
     -Uri "http://localhost:8000/evaluate" `
     -Method Post `
@@ -137,7 +153,7 @@ $response | ConvertTo-Json
 # Method 3: Using curl.exe for raw JSON
 curl.exe -X POST "http://localhost:8000/evaluate" `
   -H "Content-Type: application/json" `
-  -d (Get-Content .\test_request.json -Raw)
+  -d (Get-Content .\examples\test_request.json -Raw)
 ```
 
 #### Using Python
@@ -175,7 +191,7 @@ print(response.json())
 
 **Basic Usage:**
 ```powershell
-$json = Get-Content .\test_request.json -Raw
+$json = Get-Content .\examples\test_request.json -Raw
 Invoke-RestMethod `
     -Uri "http://localhost:8000/evaluate" `
     -Method Post `
@@ -185,7 +201,7 @@ Invoke-RestMethod `
 
 **View Raw JSON Output:**
 ```powershell
-$json = Get-Content .\test_request.json -Raw
+$json = Get-Content .\examples\test_request.json -Raw
 $response = Invoke-RestMethod `
     -Uri "http://localhost:8000/evaluate" `
     -Method Post `
@@ -200,7 +216,7 @@ $response | ConvertTo-Json | Out-String
 ```bash
 curl -X POST "http://localhost:8000/evaluate" \
   -H "Content-Type: application/json" \
-  -d @test_request.json
+  -d @examples/test_request.json
 ```
 
 ### 3. Using Python Requests
@@ -209,7 +225,7 @@ curl -X POST "http://localhost:8000/evaluate" \
 import requests
 import json
 
-with open('test_request.json', 'r') as f:
+with open('examples/test_request.json', 'r') as f:
     payload = json.load(f)
 
 response = requests.post(
