@@ -16,12 +16,27 @@ EMBEDDING_MODEL = "gemini-embedding-001"
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 
-def embed_text(text: str) -> List[float]:
+def embed_text(text: str):
     result = client.models.embed_content(
-        model=EMBEDDING_MODEL,
+        model="gemini-embedding-001",
         contents=text
     )
-    return result.embeddings[0].values
+
+    if hasattr(result, "embeddings") and result.embeddings:
+        emb = result.embeddings[0]
+        if hasattr(emb, "values"):
+            return emb.values
+        if hasattr(emb, "embedding"):
+            return emb.embedding
+
+    if hasattr(result, "embedding"):
+        emb = result.embedding
+        if hasattr(emb, "values"):
+            return emb.values
+        if hasattr(emb, "embedding"):
+            return emb.embedding
+
+    raise ValueError(f"Unsupported embedding response format: {type(result)}")
 
 
 def retrieve_fpt_context(query: str, top_k: int = 5) -> str:

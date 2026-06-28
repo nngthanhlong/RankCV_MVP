@@ -19,7 +19,22 @@ def embed_text(text: str):
         model="gemini-embedding-001",
         contents=text
     )
-    return result.embeddings[0].values
+
+    if hasattr(result, "embeddings") and result.embeddings:
+        emb = result.embeddings[0]
+        if hasattr(emb, "values"):
+            return emb.values
+        if hasattr(emb, "embedding"):
+            return emb.embedding
+
+    if hasattr(result, "embedding"):
+        emb = result.embedding
+        if hasattr(emb, "values"):
+            return emb.values
+        if hasattr(emb, "embedding"):
+            return emb.embedding
+
+    raise ValueError(f"Unsupported embedding response format: {type(result)}")
 
 
 def company_to_text(company: dict) -> str:
