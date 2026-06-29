@@ -1,45 +1,17 @@
 # app/rag/retriever.py
 import json
+import math
+import re
 from pathlib import Path
 from typing import List
 
-import chromadb
-from google import genai
-
-from app.config import GEMINI_API_KEY
-
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_PATH = BASE_DIR / "data" / "fpt_companies.json"
-COLLECTION_NAME = "fpt_knowledge"
-EMBEDDING_MODEL = "gemini-embedding-001"
-
-client = genai.Client(api_key=GEMINI_API_KEY)
-
-_chroma_client = None
-_collection = None
 
 
-def embed_text(text: str) -> List[float]:
-    result = client.models.embed_content(
-        model=EMBEDDING_MODEL,
-        contents=text
-    )
-
-    if hasattr(result, "embeddings") and result.embeddings:
-        emb = result.embeddings[0]
-        if hasattr(emb, "values"):
-            return emb.values
-        if hasattr(emb, "embedding"):
-            return emb.embedding
-
-    if hasattr(result, "embedding"):
-        emb = result.embedding
-        if hasattr(emb, "values"):
-            return emb.values
-        if hasattr(emb, "embedding"):
-            return emb.embedding
-
-    raise ValueError(f"Unsupported embedding response format: {type(result)}")
+def tokenize(text: str) -> set[str]:
+    text = text.lower()
+    return set(re.findall(r"[a-zA-Z0-9À-ỹ+#.]+", text))
 
 
 def company_to_text(company: dict) -> str:
@@ -71,62 +43,34 @@ Tech stack:
 """
 
 
-def get_collection():
-    global _chroma_client, _collection
+def score_text(query: str, document: str) -> float:
+    q_tokens = tokenize(query)
+    d_tokens = tokenize(document)
 
-    if _collection is not None:
-        return _collection
+    if not q_tokens or not d_tokens:
+        return 0.0
 
-    _chroma_client = chromadb.EphemeralClient()
-    _collection = _chroma_client.get_or_create_collection(name=COLLECTION_NAME)
-
-    companies = json.loads(DATA_PATH.read_text(encoding="utf-8"))
-
-    for company in companies:
-        text = company_to_text(company)
-
-        _collection.add(
-            ids=[company["slug"]],
-            documents=[text],
-            embeddings=[embed_text(text)],
-            metadatas=[{
-                "slug": company["slug"],
-                "name": company.get("name", ""),
-                "group": company.get("group", "")
-            }]
-        )
-
-    return _collection
+    overlap = len(q_tokens & d_tokens)
+    return overlap / math.sqrt(len(d_tokens))
 
 
 def retrieve_fpt_context(query: str, top_k: int = 5) -> str:
-    if not query or not query.strip():
-        raise ValueError("Query is empty.")
+    companies = json.loads(DATA_PATH.read_text(encoding="utf-8"))
 
-    collection = get_collection()
-    query_embedding = embed_text(query)
+    scored = []
+    for company in companies:
+        doc = company_to_text(company)
+        scored.append((score_text(query, doc), company, doc))
 
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=top_k,
-        include=["documents", "metadatas", "distances"]
-    )
-
-    documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
-    distances = results.get("distances", [[]])[0]
+    scored.sort(key=lambda x: x[0], reverse=True)
 
     context_parts = []
-
-    for i, doc in enumerate(documents):
-        metadata = metadatas[i] if i < len(metadatas) else {}
-        distance = distances[i] if i < len(distances) else None
-
+    for i, (score, company, doc) in enumerate(scored[:top_k]):
         context_parts.append(f"""
 [Retrieved FPT Context {i + 1}]
-Company: {metadata.get("name", "Unknown")}
-Slug: {metadata.get("slug", "unknown")}
-Distance: {distance}
+Company: {company.get("name", "Unknown")}
+Slug: {company.get("slug", "unknown")}
+Score: {score}
 
 {doc}
 """)
